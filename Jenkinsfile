@@ -4,7 +4,6 @@ pipeline {
         stage("Git checkout") {
             steps {
                 echo "Cloning the Python project source code from the GitHub repository"
-                // Make sure this URL is your forked repo!
                 git branch: 'main', url: 'https://github.com/Pratikmaurya/python-onepiece-app.git'
             }
         }
@@ -64,8 +63,6 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
                     sh '''
                     echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_USERNAME --password-stdin
-                    
-                    // !!! IMPORTANT: CHANGE 'kumarpm' to YOUR Docker Hub username !!!
                     docker build -t kumarpm/python-onepiece-app:latest .
                     docker push kumarpm/python-onepiece-app:latest
                     '''
@@ -76,7 +73,6 @@ pipeline {
             steps {
                 echo "Performing security scan using Trivy"
                 sh '''
-                // !!! IMPORTANT: CHANGE 'kumarpm' to YOUR Docker Hub username !!!
                 trivy image --format table --severity HIGH,CRITICAL \
                 --output trivy-report.txt kumarpm/python-onepiece-app:latest
                 '''
