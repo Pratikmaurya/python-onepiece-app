@@ -1,86 +1,89 @@
 pipeline {
-
     agent any
     stages {
         stage("Git checkout") {
             steps {
-                echo "Cloniing the Pythonn project source code from the GitHub repository" [cite: 259]
-                git branch: 'main', url: 'https://github.com/Pratikmaurya/python-onepiece-app' // **Ensure this is your forked repo URL**
+                echo "Cloning the Python project source code from the GitHub repository"
+                // Make sure this URL is your forked repo!
+                git branch: 'main', url: 'https://github.com/Pratikmaurya/python-onepiece-app.git'
             }
         }
 
-        stage("python build") { [cite: 263]
+        stage("python build") {
             steps {
-                echo "Building the Python application" [cite: 265]
+                echo "Building the Python application"
                 sh '''
-                rm -rf venv # Remove existing virtual environment if any
+                rm -rf venv
                 python -m venv venv
                 . venv/bin/activate
                 pip install -r requirements.txt
-                ''' [cite: 267-271]
+                '''
             }
         }
-        stage("Python test") { [cite: 274]
+        stage("Python test") {
             steps {
-                echo "Running tests for the Python application" [cite: 276]
+                echo "Running tests for the Python application"
                 sh '''
                 . venv/bin/activate
                 pytest app/tests/test_app.py
-                ''' [cite: 278-280]
+                '''
             }
         }
-        stage("sonarQube scan") { [cite: 283]
-            environment { SONARQUBE_SCANNER_HOME = tool 'sonar-scanner' } [cite: 284]
+        stage("sonarQube scan") {
+            environment { SONARQUBE_SCANNER_HOME = tool 'sonar-scanner' }
             steps {
-                echo "Running SonarQube scan for code quality analysis" [cite: 286]
-                withSonarQubeEnv('sonarqube-local') { [cite: 287]
+                echo "Running SonarQube scan for code quality analysis"
+                withSonarQubeEnv('sonarqube-local') {
                     sh '''
                     . venv/bin/activate
                     $SONARQUBE_SCANNER_HOME/bin/sonar-scanner \
                     -Dsonar.projectKey=Jenkins \
                     -Dsonar.sources=. \
-                    ''' [cite: 289-293]
+                    '''
                 }
             }
         }
-        stage("publish sonarQube quality gate") { [cite: 297]
-            environment { SONARQUBE_SCANNER_HOME = tool 'sonar-scanner' } [cite: 298]
+        stage("publish sonarQube quality gate") {
+            environment { SONARQUBE_SCANNER_HOME = tool 'sonar-scanner' }
             steps {
-                echo "Re-running SonarQube scan for code quality analysis" [cite: 300]
-                withSonarQubeEnv('sonarqube-local') { [cite: 301]
+                echo "Checking the SonarQube Quality Gate"
+                withSonarQubeEnv('sonarqube-local') {
                     sh '''
                     . venv/bin/activate
                     $SONARQUBE_SCANNER_HOME/bin/sonar-scanner \
                     -Dsonar.projectKey=Jenkins \
                     -Dsonar.sources=. \
-                    -Dsonarqualitygate.wait=false
-                    ''' [cite: 303-308]
+                    -Dsonarqualitygate.wait=true
+                    '''
                 }
             }
         }
-        stage("Docker build and push") { [cite: 312]
+        stage("Docker build and push") {
             steps {
-                echo "Building and Pushing the Docker image to Docker Hub" [cite: 314]
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) { [cite: 315]
+                echo "Building and Pushing the Docker image to Docker Hub"
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
                     sh '''
                     echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_USERNAME --password-stdin
-                    docker build -t kumarpm/python-onepiece-app:latest .  // **CHANGE 'kumarpm' to your Docker Hub username**
-                    docker push kumarpm/python-onepiece-app:latest  // **CHANGE 'kumarpm' to your Docker Hub username**
-                    ''' [cite: 317-320]
+                    
+                    // !!! IMPORTANT: CHANGE 'kumarpm' to YOUR Docker Hub username !!!
+                    docker build -t kumarpm/python-onepiece-app:latest .
+                    docker push kumarpm/python-onepiece-app:latest
+                    '''
                 }
             }
         }
-        stage("Trivy security scan") { [cite: 324]
+        stage("Trivy security scan") {
             steps {
-                echo "Performing security scan using Trivy" [cite: 326]
+                echo "Performing security scan using Trivy"
                 sh '''
+                // !!! IMPORTANT: CHANGE 'kumarpm' to YOUR Docker Hub username !!!
                 trivy image --format table --severity HIGH,CRITICAL \
-                --output trivy-report.txt kumarpm/python-onepiece-app:latest // **CHANGE 'kumarpm' to your Docker Hub username**
-                ''' [cite: 328-330]
+                --output trivy-report.txt kumarpm/python-onepiece-app:latest
+                '''
             }
-            post { [cite: 332]
-                always { [cite: 333]
-                    archiveArtifacts artifacts: 'trivy-report.txt' [cite: 334]
+            post {
+                always {
+                    archiveArtifacts artifacts: 'trivy-report.txt'
                 }
             }
         }
